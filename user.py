@@ -9,3 +9,4 @@ class User:
         self.last_successful_login_date = last_successful_login_date
         self.last_failed_login_date = last_failed_login_date
         self.failed_login_count_last_week = failed_login_count_last_week
+

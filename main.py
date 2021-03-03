@@ -1,9 +1,10 @@
 from flask import Flask, request, jsonify
+from risk_service import RiskService
 import datetime
 
 
 app = Flask(__name__)
-
+risk_svc = RiskService()
 
 @app.route('/')
 def hello_world():
@@ -86,7 +87,7 @@ def failed_login_counts_last_week():
 def get_log_data():
     if request.method == 'POST':
         data = request.get_data(as_text=True)
-        print(data)
+        risk_svc.add_to_queue(data)
 
     return "OK"
 
