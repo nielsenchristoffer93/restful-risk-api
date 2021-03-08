@@ -1,97 +1,101 @@
+#!/usr/bin/env python
+
+"""RESTFUL RISK API, parsing log files on POST request and add/update user data with data from log file.
+Can then later be used to send GET request based on username, ip, hostname etc and return the risk.
+"""
+
+from threading import Thread
+
 from flask import Flask, request, jsonify
 from risk_service import RiskService
-import datetime
 
+__author__ = "Christoffer Nielsen"
+__credits__ = ["Christoffer Nielsen", "Thomas Cellerier", "Natan Abolafya", "Camilla Alexandersson"]
+__version__ = "1.0.0"
+__maintainer__ = "Christoffer Nielsen"
+__email__ = "nielsenchristoffer93@gmail.com"
+__status__ = "Production"
+
+# I've been using postman for testing the GET and POST requests. Just add the data from generated log_file as raw
+# data to a POST request to http://localhost:5000/log.
 
 app = Flask(__name__)
 risk_svc = RiskService()
 
-@app.route('/')
-def hello_world():
-    return 'Hello, World!'
 
 # Has the user ever logged in. return true/false
-@app.route('/IsUserKnown')
+@app.route('/risk/isuserknown')
 def is_user_known():
-    # if key doesn't exist, returns None
     username = request.args.get('username')
-    return_bool = False
-
-    if username == "UserA":
-        return_bool = True
+    return_bool = risk_svc.is_user_known(username)
 
     return jsonify(return_bool)
+
 
 # Has the computer/client been seen before. return true/false
-@app.route('/IsClientKnown')
+@app.route('/risk/isclientknown')
 def is_client_known():
-    # if key doesn't exist, returns None
     host_name = request.args.get('hostname')
-    return_bool = False
-
-    if host_name == "computer1":
-        return_bool = True
+    return_bool = risk_svc.is_host_known(host_name)
 
     return jsonify(return_bool)
+
 
 # Has the connecting ip ever been seen before. return true/false
-@app.route('/IsIPKnown')
+@app.route('/risk/isipknown')
 def is_ip_known():
-    # if key doesn't exist, returns None
     ip = request.args.get('ip')
-    return_bool = False
-
-    if ip == "192.168.1.1":
-        return_bool = True
+    return_bool = risk_svc.is_ip_known(ip)
 
     return jsonify(return_bool)
+
 
 # Is the connecting ip internal or external, return true/false
-@app.route('/IsIPInternal')
+@app.route('/risk/isipinternal')
 def is_ip_internal():
-    # if key doesn't exist, returns None
     ip = request.args.get('ip')
-    return_bool = False
-
-    if ip == "192.168.1.2":
-        return_bool = True
+    return_bool = risk_svc.is_ip_internal(ip)
 
     return jsonify(return_bool)
 
+
 # Last successful login date for given user. Return a Datetime object.
-@app.route('/LastSuccessfulLoginDate')
+@app.route('/risk/lastsuccessfullogindate')
 def last_successful_login_date():
-    # if key doesn't exist, returns None
     username = request.args.get('username')
-    date = datetime.datetime.now()
+    date = risk_svc.get_successful_login_date(username)
 
     return jsonify(date)
+
 
 # Last failed login date for given user. Return a Datetime object.
-@app.route('/LastFailedLoginDate')
+@app.route('/risk/lastfailedlogindate')
 def last_failed_login_date():
-    # if key doesn't exist, returns None
     username = request.args.get('username')
-    date = datetime.datetime.now()
+    date = risk_svc.get_failed_login_date(username)
 
     return jsonify(date)
 
+
 # Failed login counts for given user. Return a Integer object.
-@app.route('/FailedLoginCountLastWeek')
+@app.route('/risk/failedlogincountlastweek')
 def failed_login_counts_last_week():
-    failed_logon_attempts = 4
-    return jsonify(failed_logon_attempts)
+    return jsonify(risk_svc.count_failed_logons_for_a_week())
 
 
+# Post route, all posts
 @app.route("/log", methods=['POST'])
 def get_log_data():
     if request.method == 'POST':
         data = request.get_data(as_text=True)
         risk_svc.add_to_queue(data)
 
+        # Start a new thread parsing the data, so we don't hang the post requests.
+        worker = Thread(target=risk_svc.parse_log_files, daemon=True)
+        worker.start()
+
     return "OK"
+
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
